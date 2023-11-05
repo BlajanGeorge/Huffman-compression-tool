@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -64,14 +63,6 @@ func computeFrequencyTable(fileName string) map[int]int {
 
 func computeHuffmanTree(frequencyTable map[int]int) HuffmanNode {
 	priorityQueue := PriorityQueue{}
-	//priorityQueue.insert(HuffmanNode{weight: 32, element: 'C'})
-	//priorityQueue.insert(HuffmanNode{weight: 42, element: 'D'})
-	//priorityQueue.insert(HuffmanNode{weight: 120, element: 'E'})
-	//priorityQueue.insert(HuffmanNode{weight: 7, element: 'K'})
-	//priorityQueue.insert(HuffmanNode{weight: 42, element: 'L'})
-	//priorityQueue.insert(HuffmanNode{weight: 24, element: 'M'})
-	//priorityQueue.insert(HuffmanNode{weight: 37, element: 'U'})
-	//priorityQueue.insert(HuffmanNode{weight: 2, element: 'Z'})
 
 	for element, frequency := range frequencyTable {
 		priorityQueue.insert(HuffmanNode{weight: frequency, element: element})
@@ -89,7 +80,11 @@ func computeHuffmanTree(frequencyTable map[int]int) HuffmanNode {
 
 func computePrefixTable(root HuffmanNode) map[string]string {
 	prefixTable := make(map[string]string)
-	traverseTree(&root, prefixTable, "")
+	if root.left == nil && root.right == nil {
+		prefixTable[strconv.Itoa(root.element)] = "0"
+	} else {
+		traverseTree(&root, prefixTable, "")
+	}
 	return prefixTable
 }
 
@@ -105,9 +100,54 @@ func traverseTree(root *HuffmanNode, prefixTable map[string]string, prefix strin
 	}
 }
 
-func compress(fileName string) {
+func writeToFile(fileName, destName string, prefixTable map[string]string) {
+	inputFile, err := os.Open(fileName)
+	check(err)
+	destFile, err := os.Create(destName)
+	check(err)
+	defer closeF(inputFile)
+	defer closeF(destFile)
+	buffer := make([]byte, 1)
+	compressionByte := make([]byte, 1)
+	bitsAvailable := 8
+
+	for {
+		number, err := inputFile.Read(buffer)
+		checkEOF(err)
+
+		if number == 0 {
+			break
+		}
+
+		prefixForSymbol := prefixTable[strconv.Itoa(int(buffer[0]))]
+
+		if len(prefixForSymbol) > bitsAvailable {
+			_, err := destFile.Write(compressionByte)
+			check(err)
+			bitsAvailable = 8
+			compressionByte[0] = 0
+		}
+
+		for _, char := range prefixForSymbol {
+			compressionByte[0] <<= 1
+			if char == '1' {
+				compressionByte[0] += 1
+			}
+			bitsAvailable--
+		}
+	}
+
+	if bitsAvailable != 8 {
+		_, err := destFile.Write(compressionByte)
+		check(err)
+		bitsAvailable = 8
+		compressionByte[0] = 0
+	}
+}
+
+func compress(fileName, destName string) {
 	frequencyTable := computeFrequencyTable(fileName)
 	huffmanTree := computeHuffmanTree(frequencyTable)
 	prefixTable := computePrefixTable(huffmanTree)
-	fmt.Println(prefixTable)
+	writeToFile(fileName, destName, prefixTable)
 }
