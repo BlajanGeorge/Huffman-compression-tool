@@ -8,5 +8,5 @@ func main() {
 	ValidateArgsNumber(os.Args)
 	ValidateFileName(os.Args)
 	ValidateDestination(os.Args)
-	compress(os.Args[1], os.Args[2])
+	Compress(os.Args[1], os.Args[2])
 }

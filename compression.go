@@ -145,7 +145,7 @@ func writeToFile(fileName, destName string, prefixTable map[string]string) {
 	}
 }
 
-func compress(fileName, destName string) {
+func Compress(fileName, destName string) {
 	frequencyTable := computeFrequencyTable(fileName)
 	huffmanTree := computeHuffmanTree(frequencyTable)
 	prefixTable := computePrefixTable(huffmanTree)
