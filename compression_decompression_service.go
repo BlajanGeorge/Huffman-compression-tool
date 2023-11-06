@@ -100,6 +100,18 @@ func traverseTree(root *HuffmanNode, prefixTable map[string]string, prefix strin
 	}
 }
 
+func writeHeader(destFile *os.File, prefixTable map[string]string) {
+	_, err := destFile.Write([]byte("<header>\n"))
+	check(err)
+
+	for char, prefix := range prefixTable {
+		_, err = destFile.Write([]byte(char + ":" + prefix + "\n"))
+	}
+
+	_, err = destFile.Write([]byte("<header>\n"))
+	check(err)
+}
+
 func writeToFile(fileName, destName string, prefixTable map[string]string) {
 	inputFile, err := os.Open(fileName)
 	check(err)
@@ -107,6 +119,8 @@ func writeToFile(fileName, destName string, prefixTable map[string]string) {
 	check(err)
 	defer closeF(inputFile)
 	defer closeF(destFile)
+	writeHeader(destFile, prefixTable)
+	_, err = destFile.Write([]byte("<body>"))
 	buffer := make([]byte, 1)
 	compressionByte := make([]byte, 1)
 	bitsAvailable := 8
@@ -143,10 +157,11 @@ func writeToFile(fileName, destName string, prefixTable map[string]string) {
 		bitsAvailable = 8
 		compressionByte[0] = 0
 	}
+
+	_, err = destFile.Write([]byte("<body>"))
 }
 
 func Compress(fileName, destName string) {
-	//TODO: write header with prefix table in compressed file
 	frequencyTable := computeFrequencyTable(fileName)
 	huffmanTree := computeHuffmanTree(frequencyTable)
 	prefixTable := computePrefixTable(huffmanTree)
