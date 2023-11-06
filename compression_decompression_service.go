@@ -146,8 +146,13 @@ func writeToFile(fileName, destName string, prefixTable map[string]string) {
 }
 
 func Compress(fileName, destName string) {
+	//TODO: write header with prefix table in compressed file
 	frequencyTable := computeFrequencyTable(fileName)
 	huffmanTree := computeHuffmanTree(frequencyTable)
 	prefixTable := computePrefixTable(huffmanTree)
 	writeToFile(fileName, destName, prefixTable)
+}
+
+func Decompress(fileName, destName string) {
+	//TODO: decompress file
 }
