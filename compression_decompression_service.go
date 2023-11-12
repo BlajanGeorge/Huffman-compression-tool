@@ -161,7 +161,26 @@ func writeToFile(fileName, destName string, prefixTable map[string]string) {
 	_, err = destFile.Write([]byte("<body>"))
 }
 
+func checkHeader(fileName string) bool {
+	inputFile, err := os.Open(fileName)
+	check(err)
+	defer closeF(inputFile)
+	buffer := make([]byte, 8)
+
+	number, err := inputFile.Read(buffer)
+	checkEOF(err)
+
+	if number != 8 || string(buffer) != "<header>" {
+		return false
+	}
+
+	return true
+}
+
 func Compress(fileName, destName string) {
+	if checkHeader(fileName) {
+		log.Fatalf("File %s already compressed.", fileName)
+	}
 	frequencyTable := computeFrequencyTable(fileName)
 	huffmanTree := computeHuffmanTree(frequencyTable)
 	prefixTable := computePrefixTable(huffmanTree)
@@ -169,5 +188,8 @@ func Compress(fileName, destName string) {
 }
 
 func Decompress(fileName, destName string) {
-	//TODO: decompress file
+	if !checkHeader(fileName) {
+		log.Fatalf("File %s not compressed.", fileName)
+	}
+
 }
