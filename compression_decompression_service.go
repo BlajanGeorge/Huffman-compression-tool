@@ -50,10 +50,6 @@ func computeFrequencyTable(fileName string) map[int]int {
 			break
 		}
 
-		//if number == 0 {
-		//	break
-		//}
-
 		for _, character := range buffer {
 			if character != 0 {
 				frequencyTable[int(character)]++
@@ -104,14 +100,16 @@ func traverseTree(root *HuffmanNode, prefixTable map[string]string, prefix strin
 }
 
 func writeHeader(destFile *os.File, prefixTable map[string]string) {
-	_, err := destFile.Write([]byte("<header>\n"))
-	check(err)
+	prefixTableHeader := ""
 
 	for char, prefix := range prefixTable {
-		_, err = destFile.Write([]byte(char + ":" + prefix + "\n"))
+		prefixTableHeader += fmt.Sprintf("%s:%s\n", char, prefix)
 	}
 
-	_, err = destFile.Write([]byte("<header>\n"))
+	_, err := destFile.Write([]byte(fmt.Sprintf("%d\n", rune(len(prefixTableHeader)))))
+	check(err)
+
+	_, err = destFile.Write([]byte(prefixTableHeader))
 	check(err)
 }
 
@@ -123,10 +121,9 @@ func writeToFile(fileName, destName string, prefixTable map[string]string) {
 	defer closeF(inputFile)
 	defer closeF(destFile)
 	writeHeader(destFile, prefixTable)
-	_, err = destFile.Write([]byte("<body>"))
-	buffer := make([]byte, 1)
+	buffer := make([]byte, 512)
 	compressionByte := make([]byte, 1)
-	bitsAvailable := 8
+	bitsAvailable := 5
 
 	for {
 		_, err := inputFile.Read(buffer)
@@ -134,75 +131,73 @@ func writeToFile(fileName, destName string, prefixTable map[string]string) {
 			break
 		}
 
-		//if number == 0 {
-		//	break
-		//}
+		for _, charByte := range buffer {
+			prefixForSymbol := prefixTable[strconv.Itoa(int(charByte))]
 
-		prefixForSymbol := prefixTable[strconv.Itoa(int(buffer[0]))]
-
-		if len(prefixForSymbol) > bitsAvailable {
-			_, err := destFile.Write(compressionByte)
-			check(err)
-			bitsAvailable = 8
-			compressionByte[0] = 0
-		}
-
-		for _, char := range prefixForSymbol {
-			compressionByte[0] <<= 1
-			if char == '1' {
-				compressionByte[0] += 1
+			if len(prefixForSymbol) > bitsAvailable {
+				compressionByte[0] <<= 3
+				compressionByte[0] = compressionByte[0] | byte(5-bitsAvailable)
+				_, err := destFile.Write(compressionByte)
+				check(err)
+				bitsAvailable = 5
+				compressionByte[0] = 0
 			}
-			bitsAvailable--
+
+			for _, char := range prefixForSymbol {
+				compressionByte[0] <<= 1
+				if char == '1' {
+					compressionByte[0] += 1
+				}
+				bitsAvailable--
+			}
 		}
 	}
 
-	if bitsAvailable != 8 {
+	if bitsAvailable != 5 {
+		compressionByte[0] <<= 3
+		compressionByte[0] = compressionByte[0] | byte(5-bitsAvailable)
 		_, err := destFile.Write(compressionByte)
 		check(err)
-		bitsAvailable = 8
+		bitsAvailable = 5
 		compressionByte[0] = 0
 	}
-
-	_, err = destFile.Write([]byte("<body>"))
 }
 
-func checkHeader(fileName string) bool {
-	inputFile, err := os.Open(fileName)
-	check(err)
-	defer closeF(inputFile)
-	buffer := make([]byte, 8)
+func extractHeaderSize(filePtr *os.File) int {
+	buffer := make([]byte, 1)
+	headerSizeString := ""
 
-	number, err := inputFile.Read(buffer)
-	checkEOF(err)
+	for {
+		_, err := filePtr.Read(buffer)
+		if checkEOF(err) {
+			log.Fatalf("Header size could not be extracted.")
+		}
 
-	if number != 8 || string(buffer) != "<header>" {
-		return false
+		if string(buffer) == "\n" {
+			break
+		}
+
+		headerSizeString += string(buffer)
 	}
 
-	return true
+	headerSize, _ := strconv.Atoi(headerSizeString)
+	return headerSize
 }
 
-func extractPrefixTable(fileName string) map[string]string {
-	inputFile, err := os.Open(fileName)
-	check(err)
-	defer closeF(inputFile)
-	readByte := make([]byte, 1)
+func extractPrefixTable(filePtr *os.File) map[string]string {
 	prefixTable := make(map[string]string)
+	buffer := make([]byte, extractHeaderSize(filePtr))
+
+	_, err := filePtr.Read(buffer)
+	if checkEOF(err) {
+		log.Fatalf("Prefix table could not be extracted for file %s.", filePtr.Name())
+	}
+
 	var letter string
 	var prefix string
 	afterSeparator := false
 
-	_, err = inputFile.Read(make([]byte, 9))
-	if checkEOF(err) {
-		log.Fatalf("Prefix table could not be extracted for file %s.", fileName)
-	}
-
-	for {
-		_, err := inputFile.Read(readByte)
-		if checkEOF(err) {
-			log.Fatalf("Prefix table could not be extracted for file %s.", fileName)
-		}
-
+	for _, readByte := range buffer {
 		if string(readByte) == ":" {
 			afterSeparator = true
 			continue
@@ -221,19 +216,22 @@ func extractPrefixTable(fileName string) map[string]string {
 		} else {
 			letter += string(readByte)
 		}
-
-		if letter == "<header>" {
-			break
-		}
 	}
 
 	return prefixTable
 }
 
-func Compress(fileName, destName string) {
-	if checkHeader(fileName) {
-		log.Fatalf("File %s already compressed.", fileName)
+func composeInversePrefixTable(prefixTable map[string]string) map[string]string {
+	inversePrefixTable := make(map[string]string)
+
+	for element, prefix := range prefixTable {
+		inversePrefixTable[prefix] = element
 	}
+
+	return inversePrefixTable
+}
+
+func Compress(fileName, destName string) {
 	frequencyTable := computeFrequencyTable(fileName)
 	huffmanTree := computeHuffmanTree(frequencyTable)
 	prefixTable := computePrefixTable(huffmanTree)
@@ -241,10 +239,44 @@ func Compress(fileName, destName string) {
 }
 
 func Decompress(fileName, destName string) {
-	if !checkHeader(fileName) {
-		log.Fatalf("File %s not compressed.", fileName)
-	}
-	prefixTable := extractPrefixTable(fileName)
+	inputFile, err := os.Open(fileName)
+	check(err)
+	destFile, err := os.Create(destName)
+	check(err)
+	defer closeF(inputFile)
+	defer closeF(destFile)
+	prefixTable := composeInversePrefixTable(extractPrefixTable(inputFile))
 
-	fmt.Println(prefixTable)
+	for {
+		buffer := make([]byte, 1)
+		filePrefix := ""
+		i := 0
+
+		_, err := inputFile.Read(buffer)
+		if checkEOF(err) {
+			break
+		}
+
+		writtenBits := buffer[0] & 7
+		buffer[0] >>= 3
+
+		for i < int(writtenBits) {
+			if buffer[0]&1 == 1 {
+				filePrefix += "1"
+			} else {
+				filePrefix += "0"
+			}
+
+			letter, ok := prefixTable[filePrefix]
+			if ok {
+				filePrefix = ""
+				letterNumber, _ := strconv.Atoi(letter)
+				_, err := destFile.WriteString(string(rune(letterNumber)))
+				check(err)
+			}
+
+			buffer[0] >>= 1
+			i++
+		}
+	}
 }
