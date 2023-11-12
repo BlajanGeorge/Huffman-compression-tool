@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -44,12 +45,14 @@ func computeFrequencyTable(fileName string) map[int]int {
 	buffer := make([]byte, 1024)
 
 	for {
-		number, err := file.Read(buffer)
-		checkEOF(err)
-
-		if number == 0 {
+		_, err := file.Read(buffer)
+		if checkEOF(err) {
 			break
 		}
+
+		//if number == 0 {
+		//	break
+		//}
 
 		for _, character := range buffer {
 			if character != 0 {
@@ -126,12 +129,14 @@ func writeToFile(fileName, destName string, prefixTable map[string]string) {
 	bitsAvailable := 8
 
 	for {
-		number, err := inputFile.Read(buffer)
-		checkEOF(err)
-
-		if number == 0 {
+		_, err := inputFile.Read(buffer)
+		if checkEOF(err) {
 			break
 		}
+
+		//if number == 0 {
+		//	break
+		//}
 
 		prefixForSymbol := prefixTable[strconv.Itoa(int(buffer[0]))]
 
@@ -177,6 +182,54 @@ func checkHeader(fileName string) bool {
 	return true
 }
 
+func extractPrefixTable(fileName string) map[string]string {
+	inputFile, err := os.Open(fileName)
+	check(err)
+	defer closeF(inputFile)
+	readByte := make([]byte, 1)
+	prefixTable := make(map[string]string)
+	var letter string
+	var prefix string
+	afterSeparator := false
+
+	_, err = inputFile.Read(make([]byte, 9))
+	if checkEOF(err) {
+		log.Fatalf("Prefix table could not be extracted for file %s.", fileName)
+	}
+
+	for {
+		_, err := inputFile.Read(readByte)
+		if checkEOF(err) {
+			log.Fatalf("Prefix table could not be extracted for file %s.", fileName)
+		}
+
+		if string(readByte) == ":" {
+			afterSeparator = true
+			continue
+		}
+
+		if string(readByte) == "\n" {
+			afterSeparator = false
+			prefixTable[letter] = prefix
+			prefix = ""
+			letter = ""
+			continue
+		}
+
+		if afterSeparator {
+			prefix += string(readByte)
+		} else {
+			letter += string(readByte)
+		}
+
+		if letter == "<header>" {
+			break
+		}
+	}
+
+	return prefixTable
+}
+
 func Compress(fileName, destName string) {
 	if checkHeader(fileName) {
 		log.Fatalf("File %s already compressed.", fileName)
@@ -191,5 +244,7 @@ func Decompress(fileName, destName string) {
 	if !checkHeader(fileName) {
 		log.Fatalf("File %s not compressed.", fileName)
 	}
+	prefixTable := extractPrefixTable(fileName)
 
+	fmt.Println(prefixTable)
 }
