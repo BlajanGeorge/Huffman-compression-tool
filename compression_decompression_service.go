@@ -116,7 +116,7 @@ func writeHeader(destFile *os.File, prefixTable map[string]string) {
 func writeToFile(fileName, destName string, prefixTable map[string]string) {
 	inputFile, err := os.Open(fileName)
 	check(err)
-	destFile, err := os.Create(destName)
+	destFile, err := os.OpenFile(destName, os.O_APPEND|os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	check(err)
 	defer closeF(inputFile)
 	defer closeF(destFile)
@@ -250,6 +250,7 @@ func Decompress(fileName, destName string) {
 	for {
 		buffer := make([]byte, 1)
 		filePrefix := ""
+		letters := ""
 		i := 0
 
 		_, err := inputFile.Read(buffer)
@@ -261,22 +262,26 @@ func Decompress(fileName, destName string) {
 		buffer[0] >>= 3
 
 		for i < int(writtenBits) {
-			if buffer[0]&1 == 1 {
+			offset := int(writtenBits) - 1 - i
+
+			if buffer[0]&(1<<offset) == (1 << offset) {
 				filePrefix += "1"
 			} else {
 				filePrefix += "0"
 			}
 
 			letter, ok := prefixTable[filePrefix]
+
 			if ok {
 				filePrefix = ""
 				letterNumber, _ := strconv.Atoi(letter)
-				_, err := destFile.WriteString(string(rune(letterNumber)))
-				check(err)
+				letters += string(rune(letterNumber))
 			}
 
-			buffer[0] >>= 1
 			i++
 		}
+
+		_, err = destFile.WriteString(letters)
+		check(err)
 	}
 }
