@@ -60,17 +60,17 @@ func computeFrequencyTable(fileName string) map[int]int {
 	return frequencyTable
 }
 
-func computeHuffmanTree(frequencyTable map[int]int) HuffmanNode {
-	priorityQueue := PriorityQueue{}
+func computeHuffmanTree(frequencyTable map[int]int) *HuffmanNode {
+	priorityQueue := PriorityQueue[*HuffmanNode]{}
 
 	for element, frequency := range frequencyTable {
-		priorityQueue.insert(HuffmanNode{weight: frequency, element: element})
+		priorityQueue.insert(&HuffmanNode{weight: frequency, element: element})
 	}
 
 	for priorityQueue.size() > 1 {
 		leftNode := priorityQueue.removeMin()
 		rightNode := priorityQueue.removeMin()
-		parentNode := HuffmanNode{weight: leftNode.weight + rightNode.weight, left: &leftNode, right: &rightNode}
+		parentNode := &HuffmanNode{weight: leftNode.weight + rightNode.weight, left: leftNode, right: rightNode}
 		priorityQueue.insert(parentNode)
 	}
 
@@ -234,7 +234,7 @@ func composeInversePrefixTable(prefixTable map[string]string) map[string]string 
 func Compress(fileName, destName string) {
 	frequencyTable := computeFrequencyTable(fileName)
 	huffmanTree := computeHuffmanTree(frequencyTable)
-	prefixTable := computePrefixTable(huffmanTree)
+	prefixTable := computePrefixTable(*huffmanTree)
 	writeToFile(fileName, destName, prefixTable)
 }
 

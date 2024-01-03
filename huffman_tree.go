@@ -45,14 +45,14 @@ func (queue *PriorityQueue[Node]) insert(node Node) {
 	}
 }
 
-func (queue *PriorityQueue[Node]) removeMin() (tmpNode HuffmanNode) {
+func (queue *PriorityQueue[Node]) removeMin() (tmpNode Node) {
 	if len(queue.elements) == 0 {
-		return HuffmanNode{}
+		return
 	}
 
 	tmpNode = queue.elements[0]
 	queue.elements[0] = queue.elements[len(queue.elements)-1]
-	queue.elements = append(queue.elements[:len(queue.elements)-1])
+	queue.elements = queue.elements[:len(queue.elements)-1]
 	queue.heapify(0)
 	return
 }
