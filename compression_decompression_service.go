@@ -284,4 +284,4 @@ func Decompress(fileName, destName string) {
 		_, err = destFile.WriteString(letters)
 		check(err)
 	}
-}}
+}
