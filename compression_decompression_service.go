@@ -280,7 +280,6 @@ func Decompress(fileName, destName string) {
 
 			i++
 		}
-
 		_, err = destFile.WriteString(letters)
 		check(err)
 	}
